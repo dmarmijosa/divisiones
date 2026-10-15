@@ -132,6 +132,9 @@ export const POR_TEMA: Record<Tema, (plan: PlanDivision) => string> = {
   'no-entiendo': () =>
     'No pasa nada, vamos despacio. Mira solo lo que está en amarillo en la casita y pulsa 💡 si necesitas una pista.',
   'fuera-de-tema': () => '¡Buena pregunta! Pero ahora estamos con la división. ¿Seguimos? 😊',
+  'probar-numero': (plan) =>
+    `Escribe el número que quieres probar, por ejemplo "¿y si pongo 3?", y te digo qué pasa al multiplicarlo por ${plan.divisor}.`,
+  'pide-respuesta': () => 'No te la voy a decir 😉 ¡pero te ayudo a encontrarla! Pulsa 💡 para una pista.',
 };
 
 /** Preguntas del porqué que se le hacen al niño (una por tipo de paso, la primera vez). */
@@ -159,3 +162,67 @@ export const RESPUESTA_RETO: Record<0 | 1 | 2, string> = {
   1: '¡Vas por buen camino! Te lo completo:',
   0: 'Casi. Mira, la idea es esta:',
 };
+
+const PALABRAS_NUMERO: Record<string, number> = {
+  cero: 0, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5,
+  seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+};
+
+/** Primer número que aparece en la pregunta del niño ("si multiplico por 4", "¿y con cinco?"). */
+export function extraerNumero(texto: string): number | null {
+  const cifra = texto.match(/\d+/);
+  if (cifra) return Number(cifra[0]);
+  const palabra = texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/[^a-zñ]+/)
+    .find((p) => p in PALABRAS_NUMERO);
+  return palabra === undefined ? null : PALABRAS_NUMERO[palabra];
+}
+
+/**
+ * Contesta a una pregunta con un número concreto haciendo la cuenta con ese número,
+ * igual que el probador: el niño ve qué pasa y decide él. Devuelve null si no aplica.
+ */
+export function responderConNumero(plan: PlanDivision, paso: Paso, n: number): string | null {
+  const d = plan.divisor;
+  switch (paso.tipo) {
+    case 'cabe': {
+      const c = ciclo(plan, paso);
+      const N = c.dividendoParcial;
+      const intro = n === d ? `Sí, multiplicamos por el ${d}, que es el divisor. ` : '';
+      if (n > 9) {
+        return n === d
+          ? `${intro}Ahora busca qué número del 0 al 9, multiplicado por ${d}, se acerca a ${N} sin pasarse.`
+          : `En el cociente va una sola cifra, del 0 al 9. Busca cuál, multiplicada por ${d}, se acerca a ${N} sin pasarse.`;
+      }
+      const producto = n * d;
+      const prueba = `${intro}Si pones un ${n} en el cociente: ${n} × ${d} = ${producto}.`;
+      if (producto > N) return `${prueba} ¡Eso se pasa de ${N}! 🚫 Prueba con un número más pequeño.`;
+      const sobra = N - producto;
+      if (sobra >= d) {
+        return `${prueba} Sobran ${N} − ${producto} = ${sobra}, y ${sobra} es ${sobra === d ? 'igual' : 'más'} que ${d}: ¡todavía cabe otra vez! 🤔 Prueba con uno más grande.`;
+      }
+      return `${prueba} Sobran ${N} − ${producto} = ${sobra}, y ${sobra} es menor que ${d}. ✔ ¡Ese número funciona! Escríbelo en la casilla.`;
+    }
+    case 'multiplicar': {
+      const c = ciclo(plan, paso);
+      return n === d || n === c.cifraCociente
+        ? `¡Sí! Multiplicas el ${c.cifraCociente} que pusiste en el cociente por el ${d}, que es el divisor. ¿Cuánto da?`
+        : `En este paso multiplicas el ${c.cifraCociente} que pusiste en el cociente por el ${d}, que es el divisor (no por el ${n}).`;
+    }
+    case 'restar': {
+      const c = ciclo(plan, paso);
+      return `Para comprobar si sobra ${n}, haz la cuenta al revés: ${c.producto} + ${n} tiene que dar ${c.dividendoParcial}. Y además ${n} tiene que ser menor que ${d}.`;
+    }
+    case 'bajar': {
+      const c = ciclo(plan, paso);
+      return `Mira la casita: sobró ${c.resto} y bajas el ${c.cifraBajada}. Escribe el ${c.cifraBajada} a la derecha del ${c.resto}. ¿Te da ${n}?`;
+    }
+    case 'residuo':
+      return `El residuo es lo último que sobró, abajo del todo en la casita. ¿Es ${n}? Recuerda que tiene que ser menor que ${d}.`;
+    case 'elegir-cifras':
+      return null;
+  }
+}

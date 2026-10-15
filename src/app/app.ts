@@ -38,7 +38,7 @@ import { TableroComponent } from './ui/tablero';
           @if (sesion.terminado()) {
             <section class="tarjeta final">
               <div class="buho grande" aria-hidden="true">🏆</div>
-              <h2>¡Lo lograste{{ sesion.nombre() ? ', ' + sesion.nombre() : '' }}!</h2>
+              <h2>¡Lo lograste, alumno!</h2>
               <p class="grande">
                 {{ plan.dividendo }} ÷ {{ plan.divisor }} = <b>{{ plan.cociente }}</b>
                 y residuo <b>{{ plan.residuo }}</b>

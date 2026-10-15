@@ -1,6 +1,15 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ContextoEjercicio, TIPOS_ERROR, Tema } from '../tutor/contrato';
-import { POR_ERROR, POR_QUE, POR_TEMA, PISTAS, RESPUESTA_RETO, RETOS } from '../tutor/explicaciones';
+import {
+  POR_ERROR,
+  POR_QUE,
+  POR_TEMA,
+  PISTAS,
+  RESPUESTA_RETO,
+  RETOS,
+  extraerNumero,
+  responderConNumero,
+} from '../tutor/explicaciones';
 import { TutorService } from '../tutor/tutor.service';
 import { Paso, PlanDivision, TipoPaso, Veredicto, crearPasos, crearPlan, evaluar } from './division-engine';
 import { construirTablero } from './division-tablero';
@@ -18,6 +27,8 @@ export interface Burbuja {
   readonly animo: Animo;
   readonly mensaje: string;
   readonly porque?: string;
+  /** Etiqueta del recuadro de explicación (por defecto "¿Por qué?"). */
+  readonly titulo?: string;
   readonly pista?: string;
   /** Qué decidió Jev, para que se vea que la IA está trabajando. */
   readonly jev?: string;
@@ -46,7 +57,6 @@ const porcentaje = (p: number) => `${Math.round(p * 100)}%`;
 export class SesionDivision {
   private readonly tutor = inject(TutorService);
 
-  readonly nombre = signal('');
   readonly plan = signal<PlanDivision | null>(null);
   readonly indice = signal(0);
   readonly resultado = signal<Resultado | null>(null);
@@ -84,10 +94,9 @@ export class SesionDivision {
     this.resultado.set(null);
     this.reto.set(null);
     this.reiniciarPaso();
-    const nombre = this.nombre().trim();
     this.burbuja.set({
       animo: 'explica',
-      mensaje: `¡Hola${nombre ? ' ' + nombre : ''}! Vamos a repartir ${dividendo} entre ${divisor}.`,
+      mensaje: `¡Hola, alumno! Vamos a repartir ${dividendo} entre ${divisor}.`,
       porque: POR_TEMA['que-es-dividir'](plan),
     });
   }
@@ -142,22 +151,34 @@ export class SesionDivision {
 
   async preguntaLibre(texto: string): Promise<void> {
     const plan = this.plan();
-    if (!plan || !texto.trim()) return;
-    const clasificacion = await this.tutor.clasificarPregunta({ contexto: this.contexto(plan), texto: texto.trim() });
-    if (!clasificacion) {
+    const pregunta = texto.trim();
+    if (!plan || !pregunta) return;
+    const paso = this.pasoActual();
+    const numero = extraerNumero(pregunta);
+    // Si trae un número, la respuesta es la cuenta con ese número (no hace falta la IA para eso).
+    const conNumero = paso && numero !== null ? responderConNumero(plan, paso, numero) : null;
+
+    const clasificacion = await this.tutor.clasificarPregunta({ contexto: this.contexto(plan), texto: pregunta });
+    const tema: Tema | null = clasificacion ? (clasificacion.confianza >= 0.3 ? clasificacion.tema : 'no-entiendo') : null;
+    const jev = clasificacion
+      ? `Jev entendió que preguntas sobre: ${tema} (${porcentaje(clasificacion.confianza)})`
+      : undefined;
+    const base = { mensaje: `Preguntaste: "${pregunta}"`, titulo: 'Respuesta:', jev } as const;
+
+    if (conNumero && tema !== 'fuera-de-tema') {
+      this.burbuja.set({ ...base, animo: 'piensa', porque: conNumero });
+    } else if (tema === 'pide-respuesta' && paso) {
+      const nivel = Math.min(3, this.nivelAyuda());
+      this.nivelAyuda.set(Math.min(3, nivel + 1));
+      this.burbuja.set({ ...base, animo: 'piensa', porque: POR_TEMA[tema](plan), pista: PISTAS[paso.tipo][nivel](plan, paso) });
+    } else if (tema) {
+      this.burbuja.set({ ...base, animo: 'explica', porque: POR_TEMA[tema](plan) });
+    } else {
       this.burbuja.set({
         animo: 'piensa',
         mensaje: 'Ahora mismo no puedo pensar en tu pregunta. Prueba con 💡 o 🤔, ¡esos siempre funcionan!',
       });
-      return;
     }
-    const tema = clasificacion.confianza >= 0.3 ? clasificacion.tema : 'no-entiendo';
-    this.burbuja.set({
-      animo: 'explica',
-      mensaje: `Preguntaste: "${texto.trim()}"`,
-      porque: POR_TEMA[tema](plan),
-      jev: `Jev entendió que preguntas sobre: ${tema} (${porcentaje(clasificacion.confianza)})`,
-    });
   }
 
   async responderReto(explicacion: string): Promise<void> {

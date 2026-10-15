@@ -24,7 +24,7 @@ const CARAS: Record<Animo, string> = {
       @if (sesion.burbuja(); as b) {
         <p class="mensaje">{{ b.mensaje }}</p>
         @if (b.porque) {
-          <p class="porque"><b>¿Por qué?</b> {{ b.porque }}</p>
+          <p class="porque"><b>{{ b.titulo ?? '¿Por qué?' }}</b> {{ b.porque }}</p>
         }
         @if (b.pista) {
           <p class="guia">💡 {{ b.pista }}</p>

@@ -43,6 +43,9 @@ export const TEMAS = {
   'cero-en-cociente': 'Qué hacer cuando el divisor no cabe (poner 0)',
   residuo: 'Qué es el residuo o lo que sobra',
   comprobar: 'Cómo comprobar que la división está bien',
+  'probar-numero':
+    'Propone un número concreto para probar o pregunta qué pasa si usa, multiplica o pone cierto número (ej. "¿y si pongo 4?", "si multiplico por 4")',
+  'pide-respuesta': 'Pide directamente que le digan la respuesta del paso',
   'no-entiendo': 'Está confundido o dice que no entiende, sin un tema concreto',
   'fuera-de-tema': 'No tiene que ver con la división',
 } as const;

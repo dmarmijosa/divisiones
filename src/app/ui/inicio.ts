@@ -8,19 +8,8 @@ import { SesionDivision } from '../division/sesion-division';
   template: `
     <section class="tarjeta inicio">
       <div class="buho grande" aria-hidden="true">🦉</div>
-      <h1>¡Hola! Soy el Profe Búho</h1>
+      <h1>¡Hola, alumno! Soy el Profe Búho</h1>
       <p class="sub">Vamos a aprender a dividir paso a paso, con cociente y residuo.</p>
-
-      <label class="campo">
-        <span>¿Cómo te llamas?</span>
-        <input
-          type="text"
-          maxlength="20"
-          placeholder="Tu nombre"
-          [value]="sesion.nombre()"
-          (input)="sesion.nombre.set($any($event.target).value)"
-        />
-      </label>
 
       <h2>¿Qué división quieres hacer?</h2>
       <form class="division-form" (submit)="$event.preventDefault(); empezar()">
