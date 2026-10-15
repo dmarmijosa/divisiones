@@ -1,59 +1,35 @@
-# Divisiones
+# Divisiones con el Profe Búho 🦉
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.2.
+App en Angular para aprender divisiones largas con números enteros (cociente y residuo), paso a paso:
+elegir cifras → ¿cuántas veces cabe? → multiplicar → restar → bajar la cifra → residuo → comprobación.
 
-## Development server
+## Puesta en marcha
 
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+1. Pon tu API key de TypeSafe en `src/environments/environment.server.ts`
+   (si no existe, cópialo de `environment.server.example.ts`). El modelo está en el mismo archivo: `jev-1.14.0`.
+2. Arranca la app y el servidor del tutor a la vez:
 
 ```bash
-ng generate component component-name
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+3. Abre http://localhost:4200
 
-```bash
-ng generate --help
-```
+La key solo la lee el servidor Express (`server/main.ts`); nunca llega al navegador, y el archivo está en `.gitignore`.
+Sin key la app funciona igual, con las pistas y explicaciones propias.
 
-## Building
+## Cómo se reparte el trabajo
 
-To build the project run:
+| Parte | Quién decide |
+| --- | --- |
+| Si una respuesta es correcta, la casita, los pasos | `division-engine.ts` (código determinista y probado) |
+| Textos del porqué, pistas y explicaciones para el niño | `tutor/explicaciones.ts` |
+| Qué error cometió, cuánta ayuda necesita, de qué trata su pregunta, si entendió el porqué | **TypeSafe Jev** (`server/main.ts`), con respuestas tipadas (`choice`, `score`, `noul`) |
 
-```bash
-ng build
-```
+El contrato tipado entre la app y el servidor está en `src/app/tutor/contrato.ts`.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Scripts
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- `npm start` — app + tutor
+- `npm test` — tests del motor de división
+- `npm run typecheck:server` — tipos del servidor

@@ -45,3 +45,7 @@ Thumbs.db
 
 # API key del tutor
 /src/environments/environment.server.ts
+
+# Netlify
+.netlify/
+.env

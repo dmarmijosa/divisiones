@@ -1,0 +1,20 @@
+# Despliegue en Netlify: la app Angular es estática y el tutor es una función.
+# La API key NO va aquí: se configura como variable de entorno TYPESAFE_API_KEY en Netlify.
+
+[build]
+  command = "npm run build"
+  publish = "dist/divisiones/browser"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[functions]
+  node_bundler = "esbuild"
+  # Opcional: cambia el modelo con la variable TYPESAFE_MODEL (por defecto jev-1.14.0).
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

@@ -1,8 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
-import { SesionDivision } from '../division/sesion-division';
-import { RespuestaTutor, TutorService } from '../tutor/tutor.service';
+import { Animo, SesionDivision } from '../division/sesion-division';
+import { TutorService } from '../tutor/tutor.service';
 
-const CARAS: Record<RespuestaTutor['animo'], string> = {
+const CARAS: Record<Animo, string> = {
   celebra: '🥳',
   anima: '💪',
   piensa: '🤔',
@@ -21,23 +21,42 @@ const CARAS: Record<RespuestaTutor['animo'], string> = {
         }
       </div>
 
-      @if (tutor.respuesta(); as r) {
-        @if (r.mensaje) {
-          <p class="mensaje">{{ r.mensaje }}</p>
+      @if (sesion.burbuja(); as b) {
+        <p class="mensaje">{{ b.mensaje }}</p>
+        @if (b.porque) {
+          <p class="porque"><b>¿Por qué?</b> {{ b.porque }}</p>
         }
-        @if (r.porque) {
-          <p class="porque"><b>¿Por qué?</b> {{ r.porque }}</p>
+        @if (b.pista) {
+          <p class="guia">💡 {{ b.pista }}</p>
         }
-        @if (r.preguntaGuia) {
-          <p class="guia">❓ {{ r.preguntaGuia }}</p>
+        @if (b.jev) {
+          <p class="jev">🧠 {{ b.jev }}</p>
         }
-      } @else if (tutor.error()) {
+      }
+
+      @if (sesion.reto(); as reto) {
+        <form class="reto" (submit)="$event.preventDefault(); responderReto()">
+          <p><b>Ahora tú:</b> {{ reto.pregunta }}</p>
+          <textarea
+            rows="2"
+            maxlength="300"
+            placeholder="Explícalo con tus palabras…"
+            aria-label="Tu explicación"
+            [value]="explicacion()"
+            (input)="explicacion.set($any($event.target).value)"
+          ></textarea>
+          <div class="acciones">
+            <button class="btn primario" type="submit" [disabled]="!explicacion().trim()">Explicar</button>
+            <button class="btn" type="button" (click)="sesion.saltarReto(); explicacion.set('')">No sé, explícamelo</button>
+          </div>
+        </form>
+      }
+
+      @if (!tutor.conectado()) {
         <p class="aviso">
-          No pude conectarme con el Profe Búho. Revisa la API key en
-          <code>src/environments/environment.server.mts</code>. ¡Puedes seguir practicando igual!
+          Jev (la IA de TypeSafe) no está conectado: revisa la API key en
+          <code>src/environments/environment.server.ts</code>. ¡Puedes seguir practicando igual!
         </p>
-      } @else if (!tutor.pensando()) {
-        <p class="mensaje">¡Aquí te iré explicando cada paso!</p>
       }
 
       <form class="preguntar" (submit)="$event.preventDefault(); preguntar()">
@@ -56,16 +75,21 @@ const CARAS: Record<RespuestaTutor['animo'], string> = {
 })
 export class BurbujaTutor {
   protected readonly tutor = inject(TutorService);
-  private readonly sesion = inject(SesionDivision);
+  protected readonly sesion = inject(SesionDivision);
   protected readonly texto = signal('');
+  protected readonly explicacion = signal('');
 
   protected cara(): string {
-    const animo = this.tutor.respuesta()?.animo;
-    return animo ? CARAS[animo] : '🦉';
+    return CARAS[this.sesion.burbuja()?.animo ?? 'explica'];
   }
 
   protected preguntar(): void {
-    this.sesion.preguntaLibre(this.texto());
+    void this.sesion.preguntaLibre(this.texto());
     this.texto.set('');
+  }
+
+  protected responderReto(): void {
+    void this.sesion.responderReto(this.explicacion());
+    this.explicacion.set('');
   }
 }

@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { TipoPaso } from '../division/division-engine';
 import { SesionDivision } from '../division/sesion-division';
 
@@ -91,6 +91,7 @@ export class PanelPaso {
   protected readonly valor = signal('');
   protected readonly prueba = signal('');
   private readonly entrada = viewChild<ElementRef<HTMLInputElement>>('entrada');
+  private readonly injector = inject(Injector);
 
   protected readonly divisor = computed(() => this.sesion.plan()?.divisor ?? 1);
   protected readonly tanteo = computed(() => {
@@ -107,7 +108,7 @@ export class PanelPaso {
       this.sesion.indice();
       this.valor.set('');
       this.prueba.set('');
-      queueMicrotask(() => this.entrada()?.nativeElement.focus());
+      afterNextRender(() => this.entrada()?.nativeElement.focus(), { injector: this.injector });
     });
   }
 
