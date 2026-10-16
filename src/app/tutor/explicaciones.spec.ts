@@ -12,12 +12,12 @@ describe('preguntas con número', () => {
     expect(extraerNumero('¿por qué bajo la cifra?')).toBeNull();
   });
 
-  it('hace la cuenta con el número que propone en "¿cuántas veces cabe?"', () => {
-    expect(responderConNumero(plan, cabe, 5)).toContain('5 × 4 = 20');
-    expect(responderConNumero(plan, cabe, 5)).toContain('se pasa de 17');
-    expect(responderConNumero(plan, cabe, 3)).toContain('todavía cabe otra vez');
+  it('en "¿cuántas veces cabe?" invita a hacer la cuenta, sin darla hecha', () => {
+    const respuesta = responderConNumero(plan, cabe, 5)!;
+    expect(respuesta).toContain('¿cuánto es 5 × 4?');
+    expect(respuesta).not.toContain('20');
     expect(responderConNumero(plan, cabe, 4)).toContain('Sí, multiplicamos por el 4');
-    expect(responderConNumero(plan, cabe, 4)).toContain('¡Ese número funciona!');
+    expect(responderConNumero(plan, cabe, 4)).not.toContain('16');
   });
 
   it('en "multiplicar" explica qué números se multiplican sin dar el resultado', () => {

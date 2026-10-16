@@ -47,10 +47,10 @@ export const PISTAS: Record<TipoPaso, readonly Texto[]> = {
   ],
   cabe: [
     (plan, paso) => `Piensa en la tabla del ${plan.divisor}. ¿Qué resultado se acerca a ${ciclo(plan, paso).dividendoParcial} sin pasarse?`,
-    (plan, paso) => `Usa el 🧪 Probador: prueba un número, y si te pasas de ${ciclo(plan, paso).dividendoParcial}, prueba uno más pequeño.`,
+    (plan, paso) => `Usa el 🧪 Probador: elige un número y haz tú la multiplicación por ${plan.divisor}. ¿Se pasa de ${ciclo(plan, paso).dividendoParcial}?`,
     (plan, paso) => {
       const c = ciclo(plan, paso);
-      return `Recorre la tabla: ${plan.divisor} × 1 = ${plan.divisor}, ${plan.divisor} × 2 = ${plan.divisor * 2}… sigue hasta que el siguiente se pase de ${c.dividendoParcial}.`;
+      return `Escribe en un papel la tabla del ${plan.divisor}: ${plan.divisor} × 1, ${plan.divisor} × 2, ${plan.divisor} × 3… Calcula cada una y para cuando una se pase de ${c.dividendoParcial}.`;
     },
     (plan, paso) => {
       const c = ciclo(plan, paso);
@@ -61,22 +61,14 @@ export const PISTAS: Record<TipoPaso, readonly Texto[]> = {
   multiplicar: [
     () => 'Revisa la tabla de multiplicar con calma.',
     (plan, paso) => `Es ${ciclo(plan, paso).cifraCociente} veces el ${plan.divisor}. Puedes sumarlo: ${plan.divisor} + ${plan.divisor} + …`,
-    (plan, paso) => {
-      const c = ciclo(plan, paso);
-      return c.cifraCociente > 1
-        ? `Si ${c.cifraCociente - 1} × ${plan.divisor} = ${(c.cifraCociente - 1) * plan.divisor}, ¿cuánto es una vez más el ${plan.divisor}?`
-        : `Cualquier número por ${c.cifraCociente} es… ¡piénsalo!`;
-    },
-    (plan, paso) => {
-      const c = ciclo(plan, paso);
-      return `Multiplica cifra por cifra empezando por la derecha, y no olvides llevar. ${c.cifraCociente} × ${plan.divisor % 10} = ${c.cifraCociente * (plan.divisor % 10)}…`;
-    },
+    () => 'Pulsa 🧩 "Hazlo por partes" y la hacemos juntos, paso a paso.',
+    () => 'Pulsa 🧩 "Hazlo por partes": tú calculas cada parte y yo te digo si va bien.',
   ],
   restar: [
     () => 'Resta columna por columna empezando por la derecha.',
     () => 'Si arriba hay un número más pequeño que abajo, pide prestado 1 a la cifra de la izquierda.',
     (plan, paso) => `Puedes contar hacia arriba: desde ${ciclo(plan, paso).producto}, ¿cuánto falta para llegar a ${ciclo(plan, paso).dividendoParcial}?`,
-    (plan) => `Recuerda: el resultado tiene que ser menor que ${plan.divisor}.`,
+    () => 'Pulsa 🧩 "Hazlo por partes" para restar columna por columna.',
   ],
   bajar: [
     () => 'La cifra que bajas se escribe al lado, no se suma.',
@@ -191,20 +183,14 @@ export function responderConNumero(plan: PlanDivision, paso: Paso, n: number): s
     case 'cabe': {
       const c = ciclo(plan, paso);
       const N = c.dividendoParcial;
+      if (n > 9 && n !== d) {
+        return `En el cociente va una sola cifra, del 0 al 9. Busca cuál, multiplicada por ${d}, se acerca a ${N} sin pasarse.`;
+      }
+      if (n === d && n > 9) {
+        return `Sí, multiplicamos por el ${d}, que es el divisor. Ahora elige un número del 0 al 9 y compruébalo en el 🧪 probador.`;
+      }
       const intro = n === d ? `Sí, multiplicamos por el ${d}, que es el divisor. ` : '';
-      if (n > 9) {
-        return n === d
-          ? `${intro}Ahora busca qué número del 0 al 9, multiplicado por ${d}, se acerca a ${N} sin pasarse.`
-          : `En el cociente va una sola cifra, del 0 al 9. Busca cuál, multiplicada por ${d}, se acerca a ${N} sin pasarse.`;
-      }
-      const producto = n * d;
-      const prueba = `${intro}Si pones un ${n} en el cociente: ${n} × ${d} = ${producto}.`;
-      if (producto > N) return `${prueba} ¡Eso se pasa de ${N}! 🚫 Prueba con un número más pequeño.`;
-      const sobra = N - producto;
-      if (sobra >= d) {
-        return `${prueba} Sobran ${N} − ${producto} = ${sobra}, y ${sobra} es ${sobra === d ? 'igual' : 'más'} que ${d}: ¡todavía cabe otra vez! 🤔 Prueba con uno más grande.`;
-      }
-      return `${prueba} Sobran ${N} − ${producto} = ${sobra}, y ${sobra} es menor que ${d}. ✔ ¡Ese número funciona! Escríbelo en la casilla.`;
+      return `${intro}¡Buena idea probar con el ${n}! No te digo el resultado: compruébalo tú en el 🧪 probador. Primero, ¿cuánto es ${n} × ${d}?`;
     }
     case 'multiplicar': {
       const c = ciclo(plan, paso);

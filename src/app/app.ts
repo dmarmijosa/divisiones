@@ -4,10 +4,11 @@ import { BurbujaTutor } from './ui/burbuja-tutor';
 import { Inicio } from './ui/inicio';
 import { PanelPaso } from './ui/panel-paso';
 import { TableroComponent } from './ui/tablero';
+import { VisorAnimacion } from './ui/visor-animacion';
 
 @Component({
   selector: 'app-root',
-  imports: [Inicio, TableroComponent, PanelPaso, BurbujaTutor],
+  imports: [Inicio, TableroComponent, PanelPaso, BurbujaTutor, VisorAnimacion],
   template: `
     <header class="barra">
       <span class="logo">🦉 Divisiones con el Profe Búho</span>
@@ -65,6 +66,7 @@ import { TableroComponent } from './ui/tablero';
     } @else {
       <main class="centro"><app-inicio /></main>
     }
+    <app-visor-animacion />
   `,
 })
 export class App {

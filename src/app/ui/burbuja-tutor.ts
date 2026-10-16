@@ -29,6 +29,9 @@ const CARAS: Record<Animo, string> = {
         @if (b.pista) {
           <p class="guia">💡 {{ b.pista }}</p>
         }
+        @if (b.animacion; as a) {
+          <button class="btn animacion" type="button" (click)="sesion.verAnimacion(a)">🎬 Ver animación: {{ a.titulo }}</button>
+        }
         @if (b.jev) {
           <p class="jev">🧠 {{ b.jev }}</p>
         }

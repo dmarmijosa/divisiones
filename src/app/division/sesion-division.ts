@@ -10,10 +10,12 @@ import {
   extraerNumero,
   responderConNumero,
 } from '../tutor/explicaciones';
+import { Animacion, animacionBajar, animacionRepartir, ejemploBajar, ejemploRepartir } from '../tutor/animaciones';
 import { TutorService } from '../tutor/tutor.service';
 import { Paso, PlanDivision, TipoPaso, Veredicto, crearPasos, crearPlan, evaluar } from './division-engine';
 import { construirTablero } from './division-tablero';
 import { enunciado, retroalimentacion } from './division-textos';
+import { Guia, guiaMultiplicacion, guiaResta, guiaTanteo } from './guias';
 
 export interface Resultado {
   readonly veredicto: Veredicto;
@@ -32,6 +34,21 @@ export interface Burbuja {
   readonly pista?: string;
   /** Qué decidió Jev, para que se vea que la IA está trabajando. */
   readonly jev?: string;
+  /** Animación de HyperFrames que se puede ver desde la burbuja. */
+  readonly animacion?: Animacion;
+}
+
+/** Una guía "hazlo tú" en curso. */
+export interface EstadoGuia {
+  readonly guia: Guia;
+  readonly indice: number;
+  /** Respuestas de la guía que ya acertó (para ir mostrando su trabajo). */
+  readonly hechas: readonly string[];
+  readonly mensaje: { readonly bien: boolean; readonly texto: string } | null;
+  readonly fallos: number;
+  readonly terminada: boolean;
+  /** Obligatoria: hasta terminarla no puede volver a responder el paso (evita adivinar). */
+  readonly obligatoria: boolean;
 }
 
 export interface Reto {
@@ -63,6 +80,13 @@ export class SesionDivision {
   readonly burbuja = signal<Burbuja | null>(null);
   readonly reto = signal<Reto | null>(null);
   readonly aciertos = signal(0);
+  readonly guia = signal<EstadoGuia | null>(null);
+  readonly animacion = signal<Animacion | null>(null);
+  /** Mientras haya una comprobación obligatoria abierta, no se puede responder el paso. */
+  readonly bloqueado = computed(() => {
+    const g = this.guia();
+    return g !== null && g.obligatoria && !g.terminada;
+  });
 
   /** Respuestas equivocadas en el paso actual. */
   private readonly intentos = signal<number[]>([]);
@@ -98,6 +122,7 @@ export class SesionDivision {
       animo: 'explica',
       mensaje: `¡Hola, alumno! Vamos a repartir ${dividendo} entre ${divisor}.`,
       porque: POR_TEMA['que-es-dividir'](plan),
+      animacion: ejemploRepartir({ n: dividendo, d: divisor }),
     });
   }
 
@@ -108,7 +133,7 @@ export class SesionDivision {
   responder(valor: number): Veredicto | null {
     const plan = this.plan();
     const paso = this.pasoActual();
-    if (!plan || !paso || !Number.isInteger(valor)) return null;
+    if (!plan || !paso || !Number.isInteger(valor) || this.bloqueado()) return null;
 
     const veredicto = evaluar(plan, paso, valor);
     const texto = retroalimentacion(plan, paso, veredicto);
@@ -116,7 +141,12 @@ export class SesionDivision {
 
     if (veredicto === 'correcto') {
       if (this.intentos().length === 0) this.aciertos.update((a) => a + 1);
-      this.burbuja.set({ animo: 'celebra', mensaje: texto, porque: POR_QUE[paso.tipo](plan, paso) });
+      this.burbuja.set({
+        animo: 'celebra',
+        mensaje: texto,
+        porque: POR_QUE[paso.tipo](plan, paso),
+        animacion: this.animacionTrasAcertar(plan, paso),
+      });
       this.proponerReto(paso.tipo);
       this.indice.update((i) => i + 1);
       this.reiniciarPaso();
@@ -126,8 +156,80 @@ export class SesionDivision {
     const anteriores = this.intentos();
     this.intentos.update((v) => [...v, valor]);
     this.burbuja.set({ animo: 'anima', mensaje: texto });
+    // Nada de "te pasaste / te faltó" que permita adivinar: el alumno comprueba haciendo la cuenta.
+    if (paso.tipo === 'cabe' && valor >= 0 && valor <= 9) {
+      this.tantear(valor, true);
+    } else if ((paso.tipo === 'multiplicar' || paso.tipo === 'restar') && this.intentos().length >= 2) {
+      this.hacerPorPartes(true);
+    }
     if (paso.tipo !== 'elegir-cifras') void this.diagnosticar(plan, paso, valor, veredicto, anteriores);
     return veredicto;
+  }
+
+  /** Abre el probador: el alumno comprueba él mismo si `n` cabe. */
+  tantear(n: number, obligatoria = false): void {
+    const plan = this.plan();
+    const paso = this.pasoActual();
+    if (!plan || paso?.tipo !== 'cabe' || !Number.isInteger(n) || n < 0 || n > 9) return;
+    this.abrirGuia(guiaTanteo(n, plan.divisor, plan.ciclos[paso.ciclo].dividendoParcial), obligatoria);
+  }
+
+  /** Abre la cuenta por partes del paso actual (multiplicar o restar). */
+  hacerPorPartes(obligatoria = false): void {
+    const plan = this.plan();
+    const paso = this.pasoActual();
+    if (!plan || !paso || !('ciclo' in paso)) return;
+    const c = plan.ciclos[paso.ciclo];
+    if (paso.tipo === 'multiplicar') this.abrirGuia(guiaMultiplicacion(c.cifraCociente, plan.divisor), obligatoria);
+    if (paso.tipo === 'restar') this.abrirGuia(guiaResta(c.dividendoParcial, c.producto), obligatoria);
+  }
+
+  responderGuia(valor: number | boolean): void {
+    const estado = this.guia();
+    if (!estado || estado.terminada) return;
+    const pregunta = estado.guia.preguntas[estado.indice];
+    if (pregunta.tipo === 'numero' && (typeof valor !== 'number' || !Number.isInteger(valor))) return;
+
+    if (valor !== pregunta.respuesta) {
+      const fallos = estado.fallos + 1;
+      const ayuda = pregunta.tipo === 'numero' && fallos >= 2 ? pregunta.ayuda : undefined;
+      this.guia.set({
+        ...estado,
+        fallos,
+        mensaje: { bien: false, texto: ayuda ? `Mmm, no es eso. 💡 ${ayuda}` : 'Mmm, no es eso. Revísalo con calma.' },
+      });
+      return;
+    }
+
+    const hechas = [...estado.hechas, `${pregunta.texto} → ${pregunta.tipo === 'si-no' ? (valor ? 'Sí' : 'No') : valor}`];
+    const terminada = (pregunta.tipo === 'si-no' && pregunta.fin === true) || estado.indice + 1 >= estado.guia.preguntas.length;
+    this.guia.set({
+      ...estado,
+      indice: terminada ? estado.indice : estado.indice + 1,
+      hechas,
+      fallos: 0,
+      terminada,
+      mensaje: { bien: true, texto: pregunta.correcto },
+    });
+
+    const respuesta = estado.guia.respuestaDelPaso;
+    if (terminada && respuesta !== undefined) {
+      // La cuenta por partes calculó la respuesta del paso (la escribió él en la última pregunta):
+      // se entrega y dejamos la guía abierta con la conclusión hasta que pulse "Seguir".
+      const final = this.guia();
+      this.responder(respuesta);
+      this.guia.set(final);
+    }
+  }
+
+  cerrarGuia(): void {
+    const g = this.guia();
+    if (g && g.obligatoria && !g.terminada) return;
+    this.guia.set(null);
+  }
+
+  verAnimacion(animacion: Animacion | null): void {
+    this.animacion.set(animacion);
   }
 
   pedirPista(): void {
@@ -146,7 +248,15 @@ export class SesionDivision {
   preguntarPorque(): void {
     const plan = this.plan();
     const paso = this.pasoActual();
-    if (plan && paso) this.burbuja.set({ animo: 'explica', mensaje: '¿Por qué hacemos este paso?', porque: POR_TEMA[TEMA_DEL_PASO[paso.tipo]](plan) });
+    if (!plan || !paso) return;
+    const c = 'ciclo' in paso ? plan.ciclos[paso.ciclo] : null;
+    const animacion =
+      paso.tipo === 'cabe' || paso.tipo === 'elegir-cifras'
+        ? ejemploRepartir({ n: c?.dividendoParcial ?? 0, d: plan.divisor })
+        : paso.tipo === 'bajar' && c && c.cifraBajada !== null
+          ? ejemploBajar({ resto: c.resto, cifra: c.cifraBajada })
+          : undefined;
+    this.burbuja.set({ animo: 'explica', mensaje: '¿Por qué hacemos este paso?', porque: POR_TEMA[TEMA_DEL_PASO[paso.tipo]](plan), animacion });
   }
 
   async preguntaLibre(texto: string): Promise<void> {
@@ -167,6 +277,7 @@ export class SesionDivision {
 
     if (conNumero && tema !== 'fuera-de-tema') {
       this.burbuja.set({ ...base, animo: 'piensa', porque: conNumero });
+      if (paso?.tipo === 'cabe' && numero !== null && !this.bloqueado()) this.tantear(numero);
     } else if (tema === 'pide-respuesta' && paso) {
       const nivel = Math.min(3, this.nivelAyuda());
       this.nivelAyuda.set(Math.min(3, nivel + 1));
@@ -252,6 +363,19 @@ export class SesionDivision {
   private reiniciarPaso(): void {
     this.intentos.set([]);
     this.nivelAyuda.set(0);
+    this.guia.set(null);
+  }
+
+  private abrirGuia(guia: Guia, obligatoria: boolean): void {
+    this.guia.set({ guia, indice: 0, hechas: [], mensaje: null, fallos: 0, terminada: false, obligatoria });
+  }
+
+  private animacionTrasAcertar(plan: PlanDivision, paso: Paso): Animacion | undefined {
+    if (!('ciclo' in paso)) return undefined;
+    const c = plan.ciclos[paso.ciclo];
+    if (paso.tipo === 'cabe') return animacionRepartir(c.dividendoParcial, plan.divisor) ?? undefined;
+    if (paso.tipo === 'bajar' && c.cifraBajada !== null) return animacionBajar(c.resto, c.cifraBajada);
+    return undefined;
   }
 
   private contexto(plan: PlanDivision): ContextoEjercicio {

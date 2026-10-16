@@ -1,6 +1,7 @@
 import { Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { TipoPaso } from '../division/division-engine';
 import { SesionDivision } from '../division/sesion-division';
+import { GuiaComponent } from './guia';
 
 const NOMBRES: Record<TipoPaso, string> = {
   'elegir-cifras': '1 · Elegir cifras',
@@ -13,6 +14,7 @@ const NOMBRES: Record<TipoPaso, string> = {
 
 @Component({
   selector: 'app-panel-paso',
+  imports: [GuiaComponent],
   template: `
     @if (sesion.pasoActual(); as paso) {
       <section class="tarjeta panel">
@@ -35,9 +37,10 @@ const NOMBRES: Record<TipoPaso, string> = {
               min="0"
               aria-label="Tu respuesta"
               [value]="valor()"
+              [disabled]="sesion.bloqueado()"
               (input)="valor.set($any($event.target).value)"
             />
-            <button class="btn primario" type="submit" [disabled]="valor() === ''">Comprobar</button>
+            <button class="btn primario" type="submit" [disabled]="valor() === '' || sesion.bloqueado()">Comprobar</button>
           </form>
         }
 
@@ -47,38 +50,30 @@ const NOMBRES: Record<TipoPaso, string> = {
           </p>
         }
 
-        @if (paso.tipo === 'cabe') {
-          <details class="probador">
-            <summary>🧪 Probador: tantea con la tabla del {{ divisor() }}</summary>
-            <div class="probar">
-              <span>Si pruebo con</span>
-              <input
-                class="numero mini"
-                type="number"
-                min="0"
-                max="9"
-                aria-label="Número a probar"
-                [value]="prueba()"
-                (input)="prueba.set($any($event.target).value)"
-              />
-              @if (tanteo(); as t) {
-                <span>
-                  → {{ t.n }} × {{ divisor() }} = <b>{{ t.producto }}</b>
-                  @if (t.producto > t.parcial) {
-                    · ¡se pasa de {{ t.parcial }}! 🚫
-                  } @else {
-                    · sobran {{ t.parcial - t.producto }}
-                    {{ t.parcial - t.producto >= divisor() ? '(¿cabe otra vez? 🤔)' : '✔' }}
-                  }
-                </span>
-              }
-            </div>
-          </details>
+        @if (paso.tipo === 'cabe' && !sesion.guia()) {
+          <form class="probador" (submit)="$event.preventDefault(); probar()">
+            <span>🧪 Probador: ¿y si pruebo con</span>
+            <input
+              class="numero mini"
+              type="number"
+              min="0"
+              max="9"
+              aria-label="Número a probar"
+              [value]="prueba()"
+              (input)="prueba.set($any($event.target).value)"
+            />
+            <button class="btn pequeno" type="submit" [disabled]="!pruebaValida()">Comprobarlo yo</button>
+          </form>
         }
+
+        <app-guia />
 
         <div class="acciones">
           <button class="btn" type="button" (click)="sesion.pedirPista()">💡 Dame una pista</button>
           <button class="btn" type="button" (click)="sesion.preguntarPorque()">🤔 ¿Por qué hacemos esto?</button>
+          @if ((paso.tipo === 'multiplicar' || paso.tipo === 'restar') && !sesion.guia()) {
+            <button class="btn" type="button" (click)="sesion.hacerPorPartes()">🧩 Hazlo por partes</button>
+          }
         </div>
       </section>
     }
@@ -93,13 +88,9 @@ export class PanelPaso {
   private readonly entrada = viewChild<ElementRef<HTMLInputElement>>('entrada');
   private readonly injector = inject(Injector);
 
-  protected readonly divisor = computed(() => this.sesion.plan()?.divisor ?? 1);
-  protected readonly tanteo = computed(() => {
-    const paso = this.sesion.pasoActual();
-    const plan = this.sesion.plan();
+  protected readonly pruebaValida = computed(() => {
     const n = Number(this.prueba());
-    if (!plan || paso?.tipo !== 'cabe' || this.prueba() === '' || !Number.isInteger(n) || n < 0) return null;
-    return { n, producto: n * plan.divisor, parcial: plan.ciclos[paso.ciclo].dividendoParcial };
+    return this.prueba() !== '' && Number.isInteger(n) && n >= 0 && n <= 9;
   });
 
   constructor() {
@@ -110,6 +101,12 @@ export class PanelPaso {
       this.prueba.set('');
       afterNextRender(() => this.entrada()?.nativeElement.focus(), { injector: this.injector });
     });
+  }
+
+  protected probar(): void {
+    if (!this.pruebaValida()) return;
+    this.sesion.tantear(Number(this.prueba()));
+    this.prueba.set('');
   }
 
   protected enviar(): void {

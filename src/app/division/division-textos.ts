@@ -50,16 +50,16 @@ export function retroalimentacion(plan: PlanDivision, paso: Paso, veredicto: Ver
       return `Con esas cifras el número es menor que ${plan.divisor}: ¡todavía no cabe! Toma una cifra más.`;
     case 'demasiadas-cifras':
       return 'Funciona, pero podemos empezar con menos cifras. Busca el número más pequeño donde ya quepa.';
-    case 'se-pasa':
-      return paso.tipo === 'cabe'
-        ? `Ese número es muy grande: al multiplicarlo por ${plan.divisor} te pasas.`
-        : 'Te pasaste un poquito, revisa la cuenta.';
-    case 'queda-corto':
-      return paso.tipo === 'cabe'
-        ? `Todavía cabe una vez más: si restas, sobra ${plan.divisor} o más.`
-        : 'Te quedaste un poquito corto, revisa la cuenta.';
+  }
+  // Sin decir si se pasó o le faltó: así no se puede adivinar probando números.
+  switch (paso.tipo) {
+    case 'cabe':
+      return 'No es ese. ¡Vamos a comprobar tu número haciendo tú la cuenta! 🧪';
+    case 'multiplicar':
+    case 'restar':
+      return 'No es ese. Revisa la cuenta con calma o pulsa 🧩 para hacerla por partes.';
     default:
-      return 'Mmm, no es ese. ¡Inténtalo otra vez!';
+      return 'Mmm, no es ese. Mira bien la casita y vuelve a intentarlo.';
   }
 }
 
